@@ -33,6 +33,7 @@ class Manifest:
     status: str = "queued"
     par: int = 24
     chunk_sec: int = 300
+    streams: list[dict] = field(default_factory=list)   # [{name, type, start_ms}] — for muxing
     chunks: list[Chunk] = field(default_factory=list)
     path: str | None = None   # manifest.json path on disk
 

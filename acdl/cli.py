@@ -1,14 +1,25 @@
-"""Headless CLI entry point: `acdl <url> -o out.mp4`.
+"""Headless CLI: `acdl <url> -o out.mp4`.
 
-Right now this resolves the recording from a link (link-only auth — no cookies needed) and
-prints what it found. The parallel download engine is being ported in M1 (see TASKS.md);
-until then it points you at the proven prototype `acd_fast.py`.
+Pipeline: link-only auth → establish gateway → discover streams → parallel download
+(disk-backed, resumable) → rebuild FLV tracks → ffmpeg compose → MP4.
+
+Resumable: state lives in a job dir (default downloads/<sco>/). Re-running the same link
+picks up where it left off. Pass --keep to retain the job dir (chunks/tracks) after success.
 """
 from __future__ import annotations
 import argparse
+import asyncio
+import os
+import shutil
 import sys
 
 from .core.auth import AuthError, get_session_info
+from .core.downloader import Downloader
+from .ffmpeg import find_ffmpeg
+from .jobs.manifest import Manifest
+from .jobs.store import ChunkStore
+from .media.compose import compose
+from .media.flv import build_tracks
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--cookie", help="manual cookie header (fallback; usually unnecessary)")
     ap.add_argument("--par", type=int, default=24, help="concurrent chunks (default 24)")
     ap.add_argument("--chunk", type=int, default=300, help="seconds of content per chunk")
+    ap.add_argument("--seconds", type=float, help="only download the first N seconds (testing)")
+    ap.add_argument("--job-dir", help="where to keep resumable state (default downloads/<sco>)")
+    ap.add_argument("--keep", action="store_true", help="keep the job dir after composing")
     args = ap.parse_args(argv)
 
     try:
@@ -29,11 +43,40 @@ def main(argv: list[str] | None = None) -> int:
     print(f"✓ Authorized{f' as {info.user}' if info.user else ''}")
     if info.title:
         print(f"  Recording: {info.title}")
-    print(f"  Host: {info.host}   SCO: {info.sco}")
-    print(f"  Ticket minted (fresh). connect_url ready.")
-    print()
-    print("Download engine is being ported (TASKS.md M1). For now use the proven prototype:")
-    print(f'  python3 acd_fast.py "{args.url}" --par {args.par} --chunk {args.chunk} -o {args.output}')
+
+    job_dir = args.job_dir or os.path.join("downloads", info.sco or "job")
+    manifest_path = os.path.join(job_dir, "manifest.json")
+    if os.path.exists(manifest_path):
+        manifest = Manifest.load(manifest_path)
+        print(f"  Resuming job in {job_dir}")
+    else:
+        manifest = Manifest(url=args.url, host=info.host, sco=info.sco, title=info.title,
+                            par=args.par, chunk_sec=args.chunk, path=manifest_path)
+    store = ChunkStore(os.path.join(job_dir, "chunks"))
+
+    mint = lambda: get_session_info(args.url, args.cookie)  # noqa: E731  (fresh ticket each call)
+    dl = Downloader(mint, store, manifest, par=args.par, chunk_sec=args.chunk,
+                    seconds=args.seconds, on_log=print)
+    try:
+        asyncio.run(dl.run())
+    except RuntimeError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 1
+
+    ffmpeg = find_ffmpeg()
+    tracks = build_tracks(manifest.streams, manifest.chunks, store, os.path.join(job_dir, "tracks"))
+    n_v = sum(1 for t in tracks if t.kind == "video")
+    n_a = sum(1 for t in tracks if t.kind == "audio")
+    n_w = sum(1 for t in tracks if t.kind == "webcam")
+    print(f"Composing {n_v} video + {n_a} audio"
+          + (f" (+{n_w} webcam captured, used in M2)" if n_w else "") + " track(s)…")
+    compose(tracks, args.output, manifest.duration_s, ffmpeg)
+
+    manifest.status = "done"
+    manifest.save()
+    if not args.keep:
+        shutil.rmtree(job_dir, ignore_errors=True)
+    print(f"\n✅ Done → {args.output}")
     return 0
 
 

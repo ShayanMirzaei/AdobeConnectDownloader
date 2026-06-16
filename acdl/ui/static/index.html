@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adobe Connect Downloader</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Adobe&nbsp;Connect&nbsp;Downloader</h1>
+    <p class="sub">Paste a recording link — it downloads every stream and muxes them into one MP4.</p>
+  </header>
+
+  <form id="add" autocomplete="off">
+    <input id="url" type="url" required
+           placeholder="https://vc10.sbu.ac.ir/…/?session=…">
+    <button type="submit">Download</button>
+  </form>
+  <p class="hint">No cookies needed — the link authenticates itself. If it says “expired”,
+     open the recording in your browser once and copy a fresh link.</p>
+
+  <div id="jobs"><p class="empty">No downloads yet.</p></div>
+
+  <footer>Files are saved under the <code>downloads/</code> folder next to the app.</footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
