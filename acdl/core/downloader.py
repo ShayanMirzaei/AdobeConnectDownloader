@@ -16,6 +16,7 @@ Ported from acd_fast.py FastDownloader (run/_dispatch/_reader/_build_chunks).
 """
 from __future__ import annotations
 import asyncio
+import logging
 import math
 import time
 from collections import defaultdict
@@ -41,7 +42,7 @@ class Downloader:
         self.par = par
         self.chunk_sec = chunk_sec
         self.seconds = seconds
-        self.log = on_log or (lambda _m: None)
+        self.log = on_log or logging.getLogger("acdl.download").info
         self.on_progress = on_progress or (lambda _d: None)
         self.status = "queued"     # queued|establishing|downloading|paused|done|incomplete|error
         self._stop = False         # cooperative pause flag (set from another thread)

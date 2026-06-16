@@ -16,6 +16,7 @@ import threading
 import uuid
 from typing import Optional
 
+from .. import applog
 from ..core.auth import AuthError, get_session_info
 from ..core.downloader import Downloader
 from .manifest import Manifest
@@ -31,6 +32,8 @@ class JobManager:
         self.par = par
         self.chunk = chunk
         os.makedirs(self.root, exist_ok=True)
+        applog.setup()
+        self.log = applog.get("acdl.jobs")
         self._jobs: dict[str, dict] = {}
         self._dls: dict[str, Downloader] = {}
         self._lock = threading.Lock()
@@ -83,6 +86,7 @@ class JobManager:
 
     def submit(self, url: str) -> str:
         job_id = uuid.uuid4().hex[:8]
+        self.log.info("submit job %s: %s", job_id, url)
         self._set(job_id, url=url, title="resolving…", status="queued", done=0, total=0, pct=0)
         asyncio.run_coroutine_threadsafe(self._run_job(job_id, url), self._loop)
         return job_id
@@ -115,11 +119,14 @@ class JobManager:
         try:
             info = await asyncio.to_thread(get_session_info, url)
         except AuthError as e:
+            self.log.warning("job %s auth failed: %s", job_id, e)
             self._set(job_id, status="error", error=str(e))
             return
         except Exception as e:
+            self.log.exception("job %s resolve error", job_id)
             self._set(job_id, status="error", error=f"{type(e).__name__}: {e}")
             return
+        self.log.info("job %s resolved: %s (sco=%s)", job_id, info.title, info.sco)
 
         job_dir = os.path.join(self.root, info.sco or job_id)
         mpath = os.path.join(job_dir, "manifest.json")
@@ -140,6 +147,7 @@ class JobManager:
         try:
             await dl.run()
         except Exception as e:
+            self.log.exception("job %s download error", job_id)
             self._set(job_id, status="error", error=f"{type(e).__name__}: {e}")
             return
         finally:
@@ -147,12 +155,17 @@ class JobManager:
                 self._dls.pop(job_id, None)
 
         if dl.status == "done":
+            self.log.info("job %s download complete; composing → %s", job_id, out)
             self._set(job_id, status="composing")
             try:
                 await asyncio.to_thread(self._compose, manifest, store, job_dir, out)
+                self.log.info("job %s composed → %s", job_id, out)
                 self._set(job_id, status="done", output=out)
             except Exception as e:
+                self.log.exception("job %s compose error", job_id)
                 self._set(job_id, status="error", error=f"compose: {type(e).__name__}: {e}")
+        else:
+            self.log.info("job %s ended with status=%s", job_id, dl.status)
 
     def _compose(self, manifest: Manifest, store: ChunkStore, job_dir: str, out: str) -> None:
         from ..ffmpeg import find_ffmpeg

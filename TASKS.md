@@ -12,7 +12,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs decision/re
 - [x] Prove link-only auth (no manual cookies needed)
 - [x] Repo scaffold: `.gitignore` (secrets protected), README, LICENSE (MIT), `pyproject.toml`
 - [x] Clean package skeleton (`acdl/core|media|jobs|ui`)
-- [ ] Move prototypes (`acd.py`, `acd_fast.py`) into `prototype/` once `acdl/` reaches parity
+- [x] Move prototypes + R&D (`acd.py`, `acd_fast.py`, `research/`, HARs) into gitignored `_attic/`
+- [x] File logging → `logs/acdl.log` (rotating) + console (`acdl/applog.py`)
 - [ ] CI: lint + a smoke test (GitHub Actions) — after M1
 
 ## M1 — Solid headless core  ✅ (code-complete; full-length LIVE run pending good network)

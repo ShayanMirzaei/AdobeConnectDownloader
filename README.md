@@ -7,8 +7,9 @@ Built originally for Shahid Beheshti University (SBU) recordings, whose web play
 allows 1× playback and whose "download" button is disabled for students.
 
 > **Status: early development.** The protocol is fully reverse-engineered and proven (see
-> [`docs/PROTOCOL.md`](docs/PROTOCOL.md)); we are now building the clean, packaged app.
-> The working prototypes live in the repo root (`acd.py`, `acd_fast.py`) and `research/`.
+> [`docs/PROTOCOL.md`](docs/PROTOCOL.md)); the clean app (`acdl/`) has a working engine, a
+> download-manager web UI, and webcam picture-in-picture. The original R&D prototypes and
+> capture files are kept out of the repo in a local, gitignored `_attic/` folder.
 
 ## How it will work (goal)
 

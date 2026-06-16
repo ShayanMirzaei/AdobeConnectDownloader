@@ -19,6 +19,7 @@ import threading
 import urllib.parse
 import webbrowser
 
+from .. import applog
 from ..jobs.manager import JobManager
 
 STATIC = os.path.join(os.path.dirname(__file__), "static")
@@ -89,10 +90,12 @@ def main() -> None:
     ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args()
 
+    applog.setup()
+    log = applog.get("acdl.ui")
     _MANAGER = JobManager(root=args.downloads)
     server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     url = f"http://127.0.0.1:{args.port}/"
-    print(f"AdobeConnectDownloader UI  →  {url}   (Ctrl+C to stop)")
+    log.info("AdobeConnectDownloader UI  →  %s   (Ctrl+C to stop)", url)
     if not args.no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     try:

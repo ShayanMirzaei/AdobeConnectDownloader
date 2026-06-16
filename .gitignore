@@ -9,8 +9,12 @@ cookies.txt
 *.m4a
 *_streams/
 *.log
+logs/
 downloads/
 jobs/*.json
+
+# ── Local holding area for R&D / prototypes (kept locally, never on git) ──
+_attic/
 
 # ── Python ─────────────────────────────────────────────────────────
 __pycache__/

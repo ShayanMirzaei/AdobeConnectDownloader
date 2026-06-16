@@ -11,8 +11,8 @@ import argparse
 import asyncio
 import os
 import shutil
-import sys
 
+from . import applog
 from .core.auth import AuthError, get_session_info
 from .core.downloader import Downloader
 from .ffmpeg import find_ffmpeg
@@ -33,34 +33,35 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--job-dir", help="where to keep resumable state (default downloads/<sco>)")
     ap.add_argument("--keep", action="store_true", help="keep the job dir after composing")
     args = ap.parse_args(argv)
+    applog.setup()
+    log = applog.get("acdl.cli")
 
     try:
         info = get_session_info(args.url, args.cookie)
     except AuthError as e:
-        print(f"✗ {e}", file=sys.stderr)
+        log.error("✗ %s", e)
         return 2
 
-    print(f"✓ Authorized{f' as {info.user}' if info.user else ''}")
+    log.info("✓ Authorized%s", f" as {info.user}" if info.user else "")
     if info.title:
-        print(f"  Recording: {info.title}")
+        log.info("  Recording: %s", info.title)
 
     job_dir = args.job_dir or os.path.join("downloads", info.sco or "job")
     manifest_path = os.path.join(job_dir, "manifest.json")
     if os.path.exists(manifest_path):
         manifest = Manifest.load(manifest_path)
-        print(f"  Resuming job in {job_dir}")
+        log.info("  Resuming job in %s", job_dir)
     else:
         manifest = Manifest(url=args.url, host=info.host, sco=info.sco, title=info.title,
                             par=args.par, chunk_sec=args.chunk, path=manifest_path)
     store = ChunkStore(os.path.join(job_dir, "chunks"))
 
     mint = lambda: get_session_info(args.url, args.cookie)  # noqa: E731  (fresh ticket each call)
-    dl = Downloader(mint, store, manifest, par=args.par, chunk_sec=args.chunk,
-                    seconds=args.seconds, on_log=print)
+    dl = Downloader(mint, store, manifest, par=args.par, chunk_sec=args.chunk, seconds=args.seconds)
     try:
         asyncio.run(dl.run())
     except RuntimeError as e:
-        print(f"✗ {e}", file=sys.stderr)
+        log.error("✗ %s", e)
         return 1
 
     ffmpeg = find_ffmpeg()
@@ -68,15 +69,15 @@ def main(argv: list[str] | None = None) -> int:
     n_v = sum(1 for t in tracks if t.kind == "video")
     n_a = sum(1 for t in tracks if t.kind == "audio")
     n_w = sum(1 for t in tracks if t.kind == "webcam")
-    print(f"Composing {n_v} video + {n_a} audio"
-          + (f" (+{n_w} webcam captured, used in M2)" if n_w else "") + " track(s)…")
+    log.info("Composing %d video + %d audio%s track(s)…", n_v, n_a,
+             f" + {n_w} webcam (PiP)" if n_w else "")
     compose(tracks, args.output, manifest.duration_s, ffmpeg)
 
     manifest.status = "done"
     manifest.save()
     if not args.keep:
         shutil.rmtree(job_dir, ignore_errors=True)
-    print(f"\n✅ Done → {args.output}")
+    log.info("✅ Done → %s", args.output)
     return 0
 
 
