@@ -1,0 +1,43 @@
+# ── Secrets / credentials — NEVER commit ───────────────────────────
+cookies.txt
+**/cookies.txt
+*.har
+
+# ── Large media / generated output ─────────────────────────────────
+*.mp4
+*.flv
+*.m4a
+*_streams/
+*.log
+downloads/
+jobs/*.json
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# ── ffmpeg (fetched at runtime, never committed) ───────────────────
+.cache/
+ffmpeg_bin/
+**/ffmpeg
+**/ffmpeg.exe
+**/ffprobe
+**/ffprobe.exe
+
+# ── Collected sample data (not for the public repo) ────────────────
+research/amirhossein/
+research/hosseinshams/
+research/sina/
+
+# ── OS / editor ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

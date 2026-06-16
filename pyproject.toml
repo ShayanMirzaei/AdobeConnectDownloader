@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adobe-connect-downloader"
+version = "0.1.0.dev0"
+description = "Download recorded Adobe Connect lectures (screen-share, webcam, audio, whiteboard) to MP4."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Shayan Alimirzaei" }]
+keywords = ["adobe-connect", "recording", "downloader", "rtmp", "websocket", "sbu"]
+dependencies = [
+    "websockets>=12",
+]
+
+[project.optional-dependencies]
+ui = ["fastapi>=0.110", "uvicorn>=0.29"]
+dev = ["pytest>=8", "ruff>=0.4"]
+
+[project.scripts]
+acdl = "acdl.cli:main"
+acdl-ui = "acdl.ui.server:main"
+
+[tool.setuptools.packages.find]
+include = ["acdl*"]
+
+[tool.ruff]
+line-length = 110
