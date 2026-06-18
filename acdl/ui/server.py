@@ -15,6 +15,7 @@ import http.server
 import json
 import os
 import re
+import sys
 import threading
 import urllib.parse
 import webbrowser
@@ -22,7 +23,15 @@ import webbrowser
 from .. import applog
 from ..jobs.manager import JobManager
 
-STATIC = os.path.join(os.path.dirname(__file__), "static")
+
+def _static_dir() -> str:
+    # When frozen by PyInstaller, data files live under sys._MEIPASS (see packaging/*.spec).
+    if getattr(sys, "frozen", False):
+        return os.path.join(sys._MEIPASS, "acdl", "ui", "static")
+    return os.path.join(os.path.dirname(__file__), "static")
+
+
+STATIC = _static_dir()
 _MANAGER: JobManager | None = None
 _CTYPE = {".html": "text/html; charset=utf-8", ".js": "application/javascript",
           ".css": "text/css; charset=utf-8"}

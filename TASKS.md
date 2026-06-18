@@ -54,10 +54,16 @@ Toggle: `compose.INCLUDE_WEBCAM` + `downloader.CAPTURE_WEBCAM` (both False). Cod
 - [x] `jobs/manager.py` — background-loop JobManager driving downloads, live progress
 - [x] Auth UX: link-only (no cookies in the common case)
 - [x] UI validated over localhost (page, list, submit, lifecycle, remove)
-- [ ] `ffmpeg.py` — per-OS locate/**download** with cached binary (only detect done so far)
+- [x] `ffmpeg.py` — per-OS locate/**download** + per-user cache (BtbN win/linux, evermeet macOS;
+      stdlib-only; TLS-verify fallback). Validated on macOS end-to-end.
+- [x] Packaging: PyInstaller one-file spec (`packaging/`) + frozen `_MEIPASS` static assets;
+      validated a working macOS build (serves the UI). ffmpeg fetched at runtime, not bundled.
+- [x] CI: `.github/workflows/release.yml` builds win/macOS/linux binaries → Release on `v*` tag
+      (PyInstaller can't cross-compile, so the Windows .exe is produced on a Windows runner)
+- [x] README: download-and-run + from-source + build steps
 - [ ] Manual-cookie fallback screen in the UI
-- [ ] Packaging: PyInstaller builds per OS for Releases
-- [ ] README install steps + screenshots
+- [ ] Tag a real release & smoke-test the Windows .exe on a Windows machine
+- [ ] README screenshots; one-file startup is slow (~15-20s) — consider a splash or one-dir
 
 ## M4 — Whiteboard renderer  ✅ (live-captured + rendered; validated against real recording)
 - [x] Decision: confirmed it is **vector draw data** on the `ftcontent1` content stream
