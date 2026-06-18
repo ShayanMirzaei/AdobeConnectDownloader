@@ -90,12 +90,33 @@ FLV per track. Then ffmpeg:
   when nothing is shared.
 Transcode `-c:v libx264 -c:a aac` → MP4.
 
-## 8. Whiteboard (NOT a video stream)
+## 8. Whiteboard (NOT a video stream) — implemented (M4)
 A whiteboard is **vector draw data**, delivered as SharedObject updates on the content stream
-(`ftcontent1`): `__registerSo__ setWBSo` / `set_WB_So_*`, with `shareType:"wb"` and shape
-objects `{pts:[{x,y}…], alpha, depth, currentPage, htmlText, height}`. There is **no pixel
-stream** to capture. Rendering it requires interpreting these primitives (shapes, pages,
-text) and rasterizing to a synced video track — see M4 in `TASKS.md`.
+(`ftcontent1`): `__registerSo__ setWBSo` / `set_WB_So_<page>`, with `shareType:"wb"`. There is
+**no pixel stream** to capture; we interpret the primitives and rasterize ourselves.
+
+**Capture** (`core/content.py`). `play(ftcontent1, start=0, length=-1)` dumps the *entire*
+SharedObject history as a **fast burst** — events arrive back-to-back while their recording
+time (`arg_0.time`, ms) spans the whole lecture — so capture costs seconds, not realtime. We
+collect `setWBSo` / `set_WB_So_<page>` / `setContentSo` / `__registerSo__`. The play-event name
+alone can't tell two whiteboards apart (both emit `set_WB_So_0`), so each event is bound to the
+**active board** = the `soName` of the most recent `__registerSo__{soEventName:"setWBSo"}`
+(e.g. `public/all/15_WB8`). A board that is never drawn on emits no events and is ignored.
+
+**Model.** Per board → per page → shapes keyed by an ever-increasing id, ordered by `depth`:
+`{type, pts:[{x,y}…], x,y,width,height, strokeCol(0xRRGGBB), strokeWeight, alpha, htmlText}`.
+`pts` are normalised to `[0,1]` *inside* the shape's bbox → absolute native point =
+`(x+px·width, y+py·height)` on the `nativeWidth×nativeHeight` canvas (e.g. 800×600). `newValue`
+= a dict adds/updates a shape; `newValue=null` deletes it (eraser / undo). Observed shapes so
+far are all `pencil` polylines in one colour; typed `htmlText` is supported best-effort.
+
+**Render** (`media/whiteboard.py`). Each board is rasterised with Pillow to a 0-based H.264
+video spanning its on-stage interval, then handed to `compose` as a main-stage video source
+exactly like a screen-share segment (webcam stays a PiP). On-stage interval = from the board's
+first event until the next main-stage source begins (another board, or the screen-share whose
+`start_ms` comes from stream discovery). Rendering is incremental — only a delete forces a full
+repaint; pure stroke appends draw onto the running canvas — and snapshots (emitted on change,
+≤12 fps) are encoded via ffmpeg's concat demuxer with per-frame durations.
 
 ## 9. Disproven theories (don't revisit)
 - "One connection per account / close the browser" — false; multiple tabs connect fine.

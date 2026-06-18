@@ -1,12 +1,21 @@
 """Rebuild per-track FLV files from downloaded chunk frames (read from the ChunkStore).
 
-Per stream: walk its chunks in start order; global ts = chunk_start_ms + relative_ts; keep
-only strictly-increasing ts (drops the ~6s chunk overlap so seams aren't doubled).
+Per stream: walk its chunks in start order; global ts = chunk_start_ms + relative_ts.
 
 Split by FRAME TYPE, not stream type (a cameraVoip stream carries BOTH):
     screenshare        -> 'video'  track (vp6)
     cameraVoip audio   -> 'audio'  track (nellymoser)
     cameraVoip video   -> 'webcam' track (vp6)   [used for PiP in M2]
+
+Seam handling differs by codec:
+  * Audio (Nellymoser) frames are independent — keep strictly-increasing ts, which drops the
+    ~MARGIN-second chunk overlap so seams aren't doubled.
+  * Video (VP6) frames are NOT independent. A seeked play() opens with a *priming burst*: a
+    keyframe plus several interframes ALL stamped ts=0, which the decoder needs to reconstruct
+    the image at the seek point. Dropping same-ts frames (as a naive ts-dedup does) strips that
+    burst and the stream decodes to garbage. So we keep EVERY video frame in arrival order and
+    instead trim the overlap by cutting each chunk at the next chunk's start — every chunk then
+    re-primes with its own keyframe, giving a clean seam. ts is made monotonic only for muxing.
 """
 from __future__ import annotations
 import os
@@ -42,19 +51,20 @@ def build_tracks(streams: list[dict], chunks, store, workdir: str) -> list[Track
         cs = sorted(by_stream.get(name, []), key=lambda c: c.start_s)
 
         buckets: dict[str, list] = {"video": [], "audio": [], "webcam": []}
-        last: dict[str, int] = {"video": -1, "audio": -1, "webcam": -1}
-        for c in cs:
+        for idx, c in enumerate(cs):
             off = int(round(c.start_s * 1000))
-            for ftyp, ts, payload in sorted(store.read(c.id), key=lambda r: r[1]):
+            cutoff = int(round(cs[idx + 1].start_s * 1000)) if idx + 1 < len(cs) else None
+            for ftyp, ts, payload in store.read(c.id):     # arrival = decode order
                 g = off + ts
                 if stype == "screenshare":
                     kind = "video"
                 else:
                     kind = "audio" if ftyp == AUDIO else "webcam"
-                if g <= last[kind]:
+                # Video: keep all frames in [chunk_start, next_chunk_start) — the next chunk
+                # re-primes with its own keyframe, so we just drop the tail overlap here.
+                if kind != "audio" and cutoff is not None and g >= cutoff:
                     continue
                 buckets[kind].append((g, payload))
-                last[kind] = g
 
         start_s = s["start_ms"] / 1000.0
         for kind, frames in buckets.items():
@@ -65,7 +75,18 @@ def build_tracks(streams: list[dict], chunks, store, workdir: str) -> list[Track
             with open(path, "wb") as f:
                 f.write(flv_header(has_audio=not is_video, has_video=is_video))
                 tag = FLV_TAG_VIDEO if is_video else FLV_TAG_AUDIO
-                for g, payload in frames:
-                    f.write(flv_tag(tag, g, payload))
+                if is_video:
+                    last_g = -1
+                    for g, payload in frames:               # keep order; force monotonic ts
+                        gg = g if g > last_g else last_g + 1
+                        f.write(flv_tag(tag, gg, payload))
+                        last_g = gg
+                else:
+                    last_g = -1
+                    for g, payload in sorted(frames, key=lambda r: r[0]):
+                        if g <= last_g:                     # independent frames: drop overlap
+                            continue
+                        f.write(flv_tag(tag, g, payload))
+                        last_g = g
             tracks.append(Track(path=path, kind=kind, start_s=start_s))
     return tracks

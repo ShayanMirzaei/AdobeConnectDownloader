@@ -20,6 +20,7 @@ from .jobs.manifest import Manifest
 from .jobs.store import ChunkStore
 from .media.compose import compose
 from .media.flv import build_tracks
+from .media.whiteboard import whiteboard_video_tracks
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,10 +67,14 @@ def main(argv: list[str] | None = None) -> int:
 
     ffmpeg = find_ffmpeg()
     tracks = build_tracks(manifest.streams, manifest.chunks, store, os.path.join(job_dir, "tracks"))
-    n_v = sum(1 for t in tracks if t.kind == "video")
+    video_starts = sorted(t.start_s for t in tracks if t.kind == "video")
+    wb_tracks = whiteboard_video_tracks(os.path.join(job_dir, "whiteboard.json"), video_starts,
+                                        manifest.duration_s, os.path.join(job_dir, "wb"), ffmpeg)
+    tracks += wb_tracks
+    n_v = sum(1 for t in tracks if t.kind == "video") - len(wb_tracks)
     n_a = sum(1 for t in tracks if t.kind == "audio")
     n_w = sum(1 for t in tracks if t.kind == "webcam")
-    log.info("Composing %d video + %d audio%s track(s)…", n_v, n_a,
+    log.info("Composing %d screen + %d whiteboard + %d audio%s track(s)…", n_v, len(wb_tracks), n_a,
              f" + {n_w} webcam (PiP)" if n_w else "")
     compose(tracks, args.output, manifest.duration_s, ffmpeg)
 

@@ -16,19 +16,26 @@ Ported from acd_fast.py FastDownloader (run/_dispatch/_reader/_build_chunks).
 """
 from __future__ import annotations
 import asyncio
+import json
 import logging
 import math
+import os
 import time
 from collections import defaultdict
 from typing import Callable, Optional
 
 from .auth import SessionInfo
+from .content import capture_content
 from .discover import discover, Inventory
 from .gateway import Gateway
 from ..jobs.manifest import Chunk, Manifest
 from ..jobs.store import ChunkStore
 
 MARGIN = 6.0   # extra seconds per chunk so seams overlap (no gaps); deduped at track build
+
+# Webcam PiP is parked (see TASKS.md M2 / media/compose.py). We still download cameraVoip AUDIO;
+# requesting its VIDEO too just wastes bandwidth while the feature is off. Flip to re-enable.
+CAPTURE_WEBCAM = False
 
 
 class Downloader:
@@ -115,9 +122,29 @@ class Downloader:
         self._maxts[chunk.id] = 0
         if self._stype.get(chunk.stream) == "cameraVoip":
             await self.gw.send({"type": "NSFunc", "method": "receiveAudio", "nsId": nsid, "action": True})
-            await self.gw.send({"type": "NSFunc", "method": "receiveVideo", "nsId": nsid, "action": True})
+            if CAPTURE_WEBCAM:
+                await self.gw.send({"type": "NSFunc", "method": "receiveVideo", "nsId": nsid, "action": True})
         await self.gw.play(nsid, chunk.stream, chunk.start_s, chunk.len_s + MARGIN, reset=1, media=True)
         return True
+
+    def _wb_path(self) -> Optional[str]:
+        return os.path.join(os.path.dirname(self.manifest.path), "whiteboard.json") \
+            if self.manifest.path else None
+
+    async def _capture_whiteboard(self) -> None:
+        """Grab the whiteboard/content SO events once (cheap burst). Saved next to the manifest
+        so a resume reuses it. Failure here never aborts the media download."""
+        wb_path = self._wb_path()
+        if not wb_path or os.path.exists(wb_path):
+            return
+        try:
+            wb = await capture_content(self.gw, on_log=self.log)
+            tmp = wb_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(wb, f)
+            os.replace(tmp, wb_path)
+        except Exception as e:
+            self.log(f"  whiteboard capture skipped: {e}")
 
     def _reap_done(self) -> bool:
         done_now = [cid for cid in list(self._active) if self._by_id[cid].done]
@@ -162,6 +189,8 @@ class Downloader:
                                          for s in inv.streams]
                 self._build_chunks(inv)
                 self.manifest.save()
+
+            await self._capture_whiteboard()
 
             self._by_id = {c.id: c for c in self.manifest.chunks}
             self._stype = {s["name"]: s["type"] for s in self.manifest.streams}

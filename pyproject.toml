@@ -13,6 +13,7 @@ authors = [{ name = "Shayan Alimirzaei" }]
 keywords = ["adobe-connect", "recording", "downloader", "rtmp", "websocket", "sbu"]
 dependencies = [
     "websockets>=12",
+    "pillow>=10",          # whiteboard rasterisation
 ]
 
 [project.optional-dependencies]

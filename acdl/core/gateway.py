@@ -28,6 +28,10 @@ from .protocol import UA, parse_bin
 
 MediaSink = Callable[[str, int, int, bytes], None]   # (nsid, typ, ts, payload)
 StatusSink = Callable[[str, str], None]              # (nsid, status_code)
+SoSink = Callable[[dict], None]                      # raw playEvent JSON (SharedObject updates)
+
+# SharedObject events we forward for whiteboard capture (see media/whiteboard.py).
+_SO_EVENTS = {"__registerSo__", "setContentSo", "setWBSo"}
 
 
 class Gateway:
@@ -42,6 +46,7 @@ class Gateway:
         self.last_frame_t = 0.0
         self.media_sink: Optional[MediaSink] = None
         self.status_sink: Optional[StatusSink] = None
+        self.so_sink: Optional[SoSink] = None
         self._rt: Optional[asyncio.Task] = None
         self._hb: Optional[asyncio.Task] = None
 
@@ -109,6 +114,10 @@ class Gateway:
                     for s in j["params"]["arg_2"]:
                         if isinstance(s, dict) and s.get("streamName"):
                             self.streams.setdefault(s["streamName"], s)
+                if cmd == "playEvent" and self.so_sink:
+                    a1 = j["params"].get("arg_1")
+                    if a1 in _SO_EVENTS or (isinstance(a1, str) and a1.startswith("set_WB_So_")):
+                        self.so_sink(j)
         except asyncio.CancelledError:
             raise
         except Exception:

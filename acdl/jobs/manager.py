@@ -14,7 +14,6 @@ import re
 import shutil
 import threading
 import uuid
-from typing import Optional
 
 from .. import applog
 from ..core.auth import AuthError, get_session_info
@@ -171,5 +170,10 @@ class JobManager:
         from ..ffmpeg import find_ffmpeg
         from ..media.compose import compose
         from ..media.flv import build_tracks
+        from ..media.whiteboard import whiteboard_video_tracks
+        ffmpeg = find_ffmpeg()
         tracks = build_tracks(manifest.streams, manifest.chunks, store, os.path.join(job_dir, "tracks"))
-        compose(tracks, out, manifest.duration_s, find_ffmpeg())
+        video_starts = sorted(t.start_s for t in tracks if t.kind == "video")
+        tracks += whiteboard_video_tracks(os.path.join(job_dir, "whiteboard.json"), video_starts,
+                                          manifest.duration_s, os.path.join(job_dir, "wb"), ffmpeg)
+        compose(tracks, out, manifest.duration_s, ffmpeg)
