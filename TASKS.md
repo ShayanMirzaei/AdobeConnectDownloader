@@ -54,6 +54,17 @@ Toggle: `compose.INCLUDE_WEBCAM` + `downloader.CAPTURE_WEBCAM` (both False). Cod
 - [x] `jobs/manager.py` — background-loop JobManager driving downloads, live progress
 - [x] Auth UX: link-only (no cookies in the common case)
 - [x] UI validated over localhost (page, list, submit, lifecycle, remove)
+- [x] **Queue many links + pipeline**: paste several links → queued, one *downloads* at a time
+      (single network slot via an asyncio semaphore); the slot frees as soon as a job hands off to
+      ffmpeg, so muxing one lecture overlaps downloading the next. Pausing a still-queued job drops
+      it from the line without ever connecting. (`manager._download_phase`)
+- [x] **Save location + smart naming**: finished MP4s go to the OS **Downloads** folder by default
+      (editable "Save folder", persisted in `settings.json`), into a **per-course subfolder** with a
+      date-ordered file name (`<course>/<recording-date> - <title>.mp4`). Recording date fetched
+      best-effort from the Connect XML API (`auth._recording_date`), falling back to add-order
+      (`01`, `02`, …). Course auto-derived from the title (`derive_course`) and **editable per job**
+      (auto-suggest + edit); editing a done job moves the file. Unicode (Persian) names preserved.
+      New API: `GET/POST /api/settings`, `POST /api/jobs {urls,course}`, `POST /api/jobs/<id>/rename`.
 - [x] `ffmpeg.py` — per-OS locate/**download** + per-user cache (BtbN win/linux, evermeet macOS;
       stdlib-only; TLS-verify fallback). Validated on macOS end-to-end.
 - [x] Packaging: PyInstaller one-file spec (`packaging/`) + frozen `_MEIPASS` static assets;

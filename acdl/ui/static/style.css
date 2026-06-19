@@ -12,23 +12,41 @@ body {
 header h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: .2px; }
 header .sub { margin: 0 0 20px; color: var(--muted); }
 
-#add { display: flex; gap: 10px; }
-#url {
+/* save-folder settings */
+.settings { margin-bottom: 18px; }
+.settings > label { display: block; font-size: 12px; color: var(--muted); margin: 0 2px 6px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .4px; }
+.saverow { display: flex; gap: 10px; }
+#saveto { flex: 1; padding: 10px 12px; border-radius: var(--radius);
+  border: 1px solid #2c3440; background: var(--panel); color: var(--text); font-size: 14px; }
+#saveto:focus { outline: none; border-color: var(--accent); }
+
+#add { display: flex; flex-direction: column; gap: 10px; }
+#urls {
+  width: 100%; padding: 12px 14px; border-radius: var(--radius); resize: vertical; min-height: 70px;
+  border: 1px solid #2c3440; background: var(--panel); color: var(--text); font-size: 15px;
+  font-family: inherit; line-height: 1.5;
+}
+#urls:focus { outline: none; border-color: var(--accent); }
+.addrow { display: flex; gap: 10px; }
+#course {
   flex: 1; padding: 12px 14px; border-radius: var(--radius);
   border: 1px solid #2c3440; background: var(--panel); color: var(--text); font-size: 15px;
 }
-#url:focus { outline: none; border-color: var(--accent); }
+#course:focus { outline: none; border-color: var(--accent); }
 button {
   padding: 12px 18px; border: 0; border-radius: var(--radius); cursor: pointer;
-  background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
+  background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap;
 }
 button:hover { filter: brightness(1.08); }
+button.ghost { background: var(--panel2); color: var(--text); font-weight: 500; }
 button.danger { background: transparent; color: var(--muted); border: 1px solid #333b47; font-weight: 500; }
 button.danger:hover { color: var(--err); border-color: var(--err); }
 .ctrls button { padding: 7px 13px; font-size: 13px; }
 .ctrls { display: flex; gap: 8px; }
 
 .hint { color: var(--muted); font-size: 13px; margin: 10px 2px 24px; }
+#savehint { margin: 8px 2px 0; }
 
 .card {
   background: var(--panel); border: 1px solid #232a34; border-radius: var(--radius);
@@ -38,6 +56,17 @@ button.danger:hover { color: var(--err); border-color: var(--err); }
 .row.sub { margin-top: 10px; }
 .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dest { color: var(--muted); font-size: 12px; margin-top: 6px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.dest .fname { color: var(--text); }
+
+/* inline course/name editor */
+.editor { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.editor label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.editor input { padding: 9px 11px; border-radius: 8px; border: 1px solid #2c3440;
+  background: var(--panel2); color: var(--text); font-size: 14px; }
+.editor input:focus { outline: none; border-color: var(--accent); }
+.editor .ctrls { justify-content: flex-end; }
 
 .badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
   background: var(--panel2); color: var(--muted); white-space: nowrap; }

@@ -5,8 +5,11 @@ Routes:
   GET  /                      -> the UI
   GET  /app.js | /style.css   -> static assets
   GET  /api/jobs              -> list jobs with live progress
-  POST /api/jobs {url}        -> start a download
+  POST /api/jobs {urls,course}-> queue one or more downloads (urls: list or newline string)
   POST /api/jobs/<id>/pause|resume|remove
+  POST /api/jobs/<id>/rename {course,name}
+  GET  /api/settings          -> {out_root, default}
+  POST /api/settings {out_root}-> set the Save folder
 Run via the `acdl-ui` console script (opens the browser automatically).
 """
 from __future__ import annotations
@@ -69,6 +72,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._static(p.lstrip("/"))
         if p == "/api/jobs":
             return self._json(200, _MANAGER.list())
+        if p == "/api/settings":
+            return self._json(200, _MANAGER.get_settings())
         return self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
@@ -79,11 +84,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = json.loads(raw) if raw else {}
         except Exception:
             body = {}
+        if p == "/api/settings":
+            return self._json(200, _MANAGER.set_settings(body.get("out_root") or ""))
         if p == "/api/jobs":
-            url = (body.get("url") or "").strip()
-            if not url:
+            urls = body.get("urls")
+            if isinstance(urls, str):
+                urls = re.split(r"[\r\n]+", urls)
+            if not urls:
+                urls = [body.get("url") or ""]
+            urls = [u.strip() for u in urls if u and u.strip()]
+            if not urls:
                 return self._json(400, {"error": "missing url"})
-            return self._json(200, {"id": _MANAGER.submit(url)})
+            ids = _MANAGER.submit_many(urls, (body.get("course") or "").strip())
+            return self._json(200, {"ids": ids})
+        m = re.match(r"^/api/jobs/([A-Za-z0-9]+)/rename$", p)
+        if m:
+            _MANAGER.rename(m.group(1), body.get("course"), body.get("name"))
+            return self._json(200, {"ok": True})
         m = re.match(r"^/api/jobs/([A-Za-z0-9]+)/(pause|resume|remove)$", p)
         if m:
             getattr(_MANAGER, m.group(2))(m.group(1))
@@ -95,13 +112,17 @@ def main() -> None:
     global _MANAGER
     ap = argparse.ArgumentParser(prog="acdl-ui", description="AdobeConnectDownloader web UI.")
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--downloads", default="downloads", help="folder for jobs + finished MP4s")
+    ap.add_argument("--downloads", default="downloads",
+                    help="work/cache folder for resumable job state (chunks, manifests)")
+    ap.add_argument("--save-to", default=None,
+                    help="where finished MP4s go (overrides the saved Save folder; "
+                         "defaults to the OS Downloads folder)")
     ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args()
 
     applog.setup()
     log = applog.get("acdl.ui")
-    _MANAGER = JobManager(root=args.downloads)
+    _MANAGER = JobManager(root=args.downloads, out_root=args.save_to)
     server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     url = f"http://127.0.0.1:{args.port}/"
     log.info("AdobeConnectDownloader UI  →  %s   (Ctrl+C to stop)", url)

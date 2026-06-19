@@ -29,6 +29,7 @@ class SessionInfo:
     connect_url: str
     user: str | None = None
     title: str | None = None
+    date: str | None = None   # recording date YYYY-MM-DD (best-effort; for ordering)
 
 
 def token_from_url(url: str) -> str | None:
@@ -46,6 +47,24 @@ def _http_get(url: str, cookie: str, timeout: int = 30) -> str:
         headers["Cookie"] = cookie
     req = urllib.request.Request(url, headers=headers)
     return urllib.request.urlopen(req, timeout=timeout, context=ctx).read().decode("utf-8", "replace")
+
+
+def _recording_date(host: str, sco: str, cookie: str) -> str | None:
+    """Best-effort recording date (YYYY-MM-DD) via the Connect XML API, for file ordering.
+
+    Never fatal — any failure just yields None and the caller falls back to add-order.
+    """
+    if not sco:
+        return None
+    try:
+        xml = _http_get(f"https://{host}/api/xml?action=sco-info&sco-id={sco}", cookie, timeout=15)
+    except Exception:
+        return None
+    for tag in ("date-begin", "date-created", "date-modified"):
+        m = re.search(rf"<{tag}>\s*(\d{{4}}-\d{{2}}-\d{{2}})", xml)
+        if m:
+            return m.group(1)
+    return None
 
 
 def get_session_info(url: str, cookie: str | None = None) -> SessionInfo:
@@ -83,5 +102,6 @@ def get_session_info(url: str, cookie: str | None = None) -> SessionInfo:
     if mtitle:
         title = html.unescape(mtitle.group(1).strip())
     connect_url = f"rtmp://{host}:1935/?rtmp://localhost:8506/flvplayeras3app/{acct}/{sco}/output/"
+    date = _recording_date(host, sco, cookie)
     return SessionInfo(host=host, ticket=mt.group(1), acct=acct, sco=sco,
-                       connect_url=connect_url, user=user, title=title)
+                       connect_url=connect_url, user=user, title=title, date=date)

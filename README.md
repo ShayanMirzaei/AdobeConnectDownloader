@@ -16,12 +16,16 @@ allows 1× playback and whose "download" button is disabled for students.
 
 ## How it works
 
-1. Paste the recording link (e.g. `https://vc10.sbu.ac.ir/<id>/?session=<token>`).
-2. The app authenticates from the link itself — **no cookies to copy** in the common case.
-3. It downloads the streams in parallel (~24× realtime), captures the whiteboard's vector draw
-   events, composes everything into one MP4 (the shared content as it changes over time, in
-   sync with the audio), and saves it.
-4. A small download-manager UI shows progress and can **resume** if interrupted.
+1. Paste **one or more** recording links (one per line) — e.g. `https://vc10.sbu.ac.ir/<id>/?session=<token>`.
+2. The app authenticates from each link itself — **no cookies to copy** in the common case.
+3. Links are **queued and downloaded one at a time** (~24× realtime each); the moment one finishes
+   downloading and hands off to muxing, the next starts — so muxing one lecture overlaps fetching
+   the next. Each download captures the whiteboard's vector draw events and composes everything
+   into one MP4 (the shared content as it changes over time, in sync with the audio).
+4. Files are saved to your **Downloads folder** by default (editable), organised into a
+   **per-course subfolder** with a date-ordered name (e.g. `Algorithms/2026-03-08 - <title>.mp4`).
+   The course folder and file name are auto-suggested and **editable** per download.
+5. A small download-manager UI shows progress and can **resume** if interrupted.
 
 Cross-platform (Windows / macOS / Linux), self-contained, open source (MIT).
 

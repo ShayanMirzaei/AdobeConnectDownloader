@@ -33,6 +33,12 @@ class Manifest:
     status: str = "queued"
     par: int = 24
     chunk_sec: int = 300
+    # --- output naming/organisation (chosen by the JobManager; persisted so resume/rename keep it) ---
+    course: str = ""          # course folder name (auto-derived from title or user-set)
+    out_name: str = ""        # base file name (no prefix/extension); defaults to the title
+    prefix: str = ""          # filename prefix for ordering — recording date or add-order seq
+    out_root: str = ""        # base "Save folder" the file lives under
+    out_path: str = ""        # resolved absolute path of the final .mp4
     streams: list[dict] = field(default_factory=list)   # [{name, type, start_ms}] — for muxing
     chunks: list[Chunk] = field(default_factory=list)
     path: str | None = None   # manifest.json path on disk

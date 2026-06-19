@@ -9,20 +9,33 @@
 <body>
   <header>
     <h1>Adobe&nbsp;Connect&nbsp;Downloader</h1>
-    <p class="sub">Paste a recording link — it downloads every stream and muxes them into one MP4.</p>
+    <p class="sub">Paste recording links — each downloads every stream and muxes into one MP4.</p>
   </header>
 
+  <div class="settings">
+    <label for="saveto">Save folder</label>
+    <div class="saverow">
+      <input id="saveto" type="text" placeholder="~/Downloads" spellcheck="false">
+      <button id="savebtn" type="button" class="ghost">Save</button>
+    </div>
+    <p class="hint" id="savehint">Each course goes in its own subfolder; files are named by recording date.</p>
+  </div>
+
   <form id="add" autocomplete="off">
-    <input id="url" type="url" required
-           placeholder="https://vc10.sbu.ac.ir/…/?session=…">
-    <button type="submit">Download</button>
+    <textarea id="urls" rows="3" required
+      placeholder="Paste one or more links, one per line:&#10;https://vc10.sbu.ac.ir/…/?session=…&#10;https://vc10.sbu.ac.ir/…/?session=…"></textarea>
+    <div class="addrow">
+      <input id="course" type="text" placeholder="Course folder (optional — auto-detected if blank)" spellcheck="false">
+      <button type="submit">Add to queue</button>
+    </div>
   </form>
   <p class="hint">No cookies needed — the link authenticates itself. If it says “expired”,
-     open the recording in your browser once and copy a fresh link.</p>
+     open the recording in your browser once and copy a fresh link. One download runs at a time;
+     the next starts as soon as the previous one finishes downloading.</p>
 
   <div id="jobs"><p class="empty">No downloads yet.</p></div>
 
-  <footer>Files are saved under the <code>downloads/</code> folder next to the app.</footer>
+  <footer>Course folder &amp; file name are auto-suggested — click <b>Edit</b> on a card to change them.</footer>
 
   <script src="/app.js"></script>
 </body>
